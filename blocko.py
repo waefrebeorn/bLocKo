@@ -362,11 +362,9 @@ class BKGame(arcade.Window):
         self.current_block = self.next_blocks.pop(0)
         self.next_blocks.append(self.get_new_block())
     
-        # Calculate the initial position
         self.current_block.grid_x = (GRID_WIDTH - self.current_block.get_width()) // 2
         self.current_block.grid_y = GRID_HEIGHT + BUFFER_ZONE_HEIGHT - self.current_block.get_height()
     
-        # Check if the initial position is valid
         if not self.is_valid_position(self.current_block.get_global_positions()):
             self.game_over()
             return False
@@ -394,14 +392,6 @@ class BKGame(arcade.Window):
 
         self.can_hold = False
 
-    def is_valid_position(self, positions):
-        for x, y in positions:
-            if x < 0 or x >= GRID_WIDTH or y < 0:
-                return False  # Out of bounds
-            if y < GRID_HEIGHT and self.grid[int(y)][int(x)] is not None:
-                return False  # Collision with existing block
-        return True
-
     def move_block(self, dx, dy):
         if self.current_block:
             new_positions = [(x + dx, y + dy) for x, y in self.current_block.get_global_positions()]
@@ -412,6 +402,14 @@ class BKGame(arcade.Window):
                 arcade.play_sound(MOVE_SOUND)
                 return True
         return False
+    
+    def is_valid_position(self, positions):
+        for x, y in positions:
+            if x < 0 or x >= GRID_WIDTH or y < 0:
+                return False
+            if y < GRID_HEIGHT + BUFFER_ZONE_HEIGHT and self.grid[int(y)][int(x)] is not None:
+                return False
+        return True
 
     def hard_drop(self):
         if not self.current_block:
@@ -437,7 +435,7 @@ class BKGame(arcade.Window):
         for y in range(GRID_HEIGHT + BUFFER_ZONE_HEIGHT):
             if all(self.grid[y][x] is not None for x in range(GRID_WIDTH)):
                 lines_to_clear.append(y)
-
+    
         if lines_to_clear:
             self.flash_lines = lines_to_clear.copy()
             self.is_flashing = True
@@ -449,11 +447,13 @@ class BKGame(arcade.Window):
             self.update_combo(len(lines_to_clear))
             if self.power_ups_enabled:
                 self.spawn_power_up_block()
-
+    
             for y in sorted(lines_to_clear, reverse=True):
                 del self.grid[y]
+    
+            for _ in range(len(lines_to_clear)):
                 self.grid.insert(0, [None for _ in range(GRID_WIDTH)])
-
+    
             self.lines_cleared += len(lines_to_clear)
             self.score += self.calculate_score(len(lines_to_clear))
             self.update_level()
@@ -574,6 +574,7 @@ class BKGame(arcade.Window):
         self.stop_background_music()
         arcade.play_sound(GAME_OVER_SOUND)
         self.update_high_scores()
+        self.current_block = None
         
     def on_draw(self):
         arcade.start_render()
@@ -1079,11 +1080,30 @@ class BKGame(arcade.Window):
             self.last_pressure_time = time.time()
             self.pressure_level = 0
             self.lava_height = 0
-
+                
+    def test_game_over_condition(self):
+        # Fill the grid to test game over condition
+        for y in range(GRID_HEIGHT):
+            for x in range(GRID_WIDTH):
+                self.grid[y][x] = arcade.color.WHITE
+        
+        # Leave top rows empty
+        for y in range(GRID_HEIGHT, GRID_HEIGHT + BUFFER_ZONE_HEIGHT):
+            for x in range(GRID_WIDTH):
+                self.grid[y][x] = None
+        
+        # Attempt to spawn a new block
+        if not self.spawn_new_block():
+            print("Game over condition working correctly")
+        else:
+            print("Game over condition failed")
+    #Call this method after starting the game to test
+    #self.test_game_over_condition()
+            
     def start_background_music(self):
         if self.bg_music:
             arcade.stop_sound(self.bg_music)
-        self.bg_music = arcade.play_sound(BG_MUSIC, looping=True)
+        self.bg_music = arcade.play_sound(BG_MUSIC, looping=True, volume=0.5)  # Adjust volume here (0.0 to 1.0)
 
     def stop_background_music(self):
         if self.bg_music:
